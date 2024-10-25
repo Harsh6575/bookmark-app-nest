@@ -8,10 +8,16 @@ import {
   UNKNOWN_ERROR,
   USER_EMAIL_ALREADY_EXISTS,
 } from 'src/constants';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jwt: JwtService,
+    private readonly config: ConfigService,
+  ) {}
 
   async signup(dto: AuthDto) {
     // Generate password hash
@@ -24,15 +30,10 @@ export class AuthService {
           email: dto.email,
           hash: hash,
         },
-        // TODO: Change this logic
-        select: {
-          id: true,
-          email: true,
-        },
       });
 
       // Return saved user
-      return user;
+      return this.signToken(user.id, user.email);
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
@@ -65,8 +66,19 @@ export class AuthService {
     }
 
     // return user info
-    // TODO: Change this logic
-    delete user.hash;
-    return user;
+    return this.signToken(user.id, user.email);
+  }
+
+  signToken(userId: number, email: string): Promise<string> {
+    // create token
+    const payload = {
+      sub: userId,
+      email,
+    };
+
+    return this.jwt.signAsync(payload, {
+      expiresIn: '15m',
+      secret: this.config.get('JWT_SECRET'),
+    });
   }
 }
