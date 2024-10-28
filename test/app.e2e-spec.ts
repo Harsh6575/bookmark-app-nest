@@ -1,9 +1,12 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import * as pactum from 'pactum';
 import { Test } from '@nestjs/testing';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
+
 import { AppModule } from 'src/app.module';
 import { PrismaService } from 'src/prisma/prisma.service';
-import * as pactum from 'pactum';
 import { AuthDto } from 'src/auth/dto';
+import { EditUserDto } from 'src/user/dto';
+import { CreateBookmarkDto, EditBookmarkDto } from 'src/bookmark/dto';
 
 describe('App e2e', () => {
   let app: INestApplication;
@@ -31,8 +34,6 @@ describe('App e2e', () => {
   afterAll(async () => {
     await app.close();
   });
-
-  it.todo('should pass');
 
   describe('Auth', () => {
     const dto: AuthDto = {
@@ -121,14 +122,110 @@ describe('App e2e', () => {
       });
     });
 
-    describe('Edit User', () => {});
+    describe('Edit User', () => {
+      const dto: EditUserDto = {
+        firstName: 'John',
+        lastName: 'Doe',
+      };
+
+      it('Should Edit Current User', () => {
+        return pactum
+          .spec()
+          .patch('/users/edit')
+          .withHeaders({ Authorization: 'Bearer $S{user_AT}' })
+          .withBody(dto)
+          .expectStatus(200);
+      });
+    });
   });
 
   describe('Bookmarks', () => {
-    describe('Create Bookmark', () => {});
-    describe('Get All Bookmarks', () => {});
-    describe('Get Bookmark by Id', () => {});
-    describe('Edit Bookmark', () => {});
-    describe('Delete Bookmark', () => {});
+    describe('Get Empty Bookmarks', () => {
+      it('Should Not Get Any Bookmarks', () => {
+        return pactum
+          .spec()
+          .get('/bookmarks')
+          .withHeaders({ Authorization: 'Bearer $S{user_AT}' })
+          .expectStatus(200)
+          .expectBody([]);
+      });
+    });
+
+    describe('Create Bookmark', () => {
+      const dto: CreateBookmarkDto = {
+        title: 'Test Bookmark',
+        description: 'This is a test bookmark.',
+        link: 'https://example.com',
+      };
+      it('Should Create Bookmark', () => {
+        return pactum
+          .spec()
+          .post('/bookmarks')
+          .withHeaders({ Authorization: 'Bearer $S{user_AT}' })
+          .withBody(dto)
+          .expectStatus(201)
+          .stores('bookmarkId', 'id');
+      });
+    });
+
+    describe('Get All Bookmarks', () => {
+      it('Should Get All Bookmarks', () => {
+        return pactum
+          .spec()
+          .get('/bookmarks')
+          .withHeaders({ Authorization: 'Bearer $S{user_AT}' })
+          .expectStatus(200)
+          .expectJsonLength(1);
+      });
+    });
+
+    describe('Get Bookmark by Id', () => {
+      it('Should Get Bookmark by Id', () => {
+        return pactum
+          .spec()
+          .get('/bookmarks/{id}')
+          .withPathParams('id', '$S{bookmarkId}')
+          .withHeaders({ Authorization: 'Bearer $S{user_AT}' })
+          .expectStatus(200)
+          .expectBodyContains('$S{bookmarkId}');
+      });
+    });
+
+    describe('Edit Bookmark', () => {
+      const dto: EditBookmarkDto = {
+        title: 'Updated Test Bookmark',
+      };
+
+      it('Should Edit Bookmark', () => {
+        return pactum
+          .spec()
+          .patch('/bookmarks/{id}')
+          .withPathParams('id', '$S{bookmarkId}')
+          .withHeaders({ Authorization: 'Bearer $S{user_AT}' })
+          .withBody(dto)
+          .expectStatus(200)
+          .expectBodyContains('$S{bookmarkId}');
+      });
+    });
+
+    describe('Delete Bookmark', () => {
+      it('Should Delete Bookmark', () => {
+        return pactum
+          .spec()
+          .delete('/bookmarks/{id}')
+          .withPathParams('id', '$S{bookmarkId}')
+          .withHeaders({ Authorization: 'Bearer $S{user_AT}' })
+          .expectStatus(204);
+      });
+
+      it('Should Get Empty Bookmark', () => {
+        return pactum
+          .spec()
+          .get('/bookmarks')
+          .withHeaders({ Authorization: 'Bearer $S{user_AT}' })
+          .expectStatus(200)
+          .expectBody([]);
+      })
+    });
   });
 });
